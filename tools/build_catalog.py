@@ -18,7 +18,7 @@ def build(folder, previous, output, tag):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     entries = []
     for path in sorted(folder.glob("*.zip")):
-        info = cart_info(path)
+        info = cart_info(path, check_scripts=True)
         identity = info["id"]
         prior = old.get(identity)
         if prior and prior["sha256"] == info["sha256"]:

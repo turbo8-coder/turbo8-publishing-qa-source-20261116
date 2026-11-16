@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import re
 import struct
+import subprocess
 from zipfile import ZipFile
 
 MAX_ZIP = 32 * 1024 * 1024
@@ -11,7 +12,7 @@ MAX_COVER = 128 * 1024
 COVER_SIZE = (256, 144)
 
 
-def cart_info(path):
+def cart_info(path, *, check_scripts=False):
     if path.stat().st_size > MAX_ZIP:
         raise ValueError(f"{path.name}: ZIP exceeds 32 MiB")
     raw = path.read_bytes()
@@ -45,6 +46,12 @@ def cart_info(path):
             for script in scripts
         ) or any(name.startswith("/") or ".." in name for name in names):
             raise ValueError(f"{path.name}: unsafe or incomplete ZIP")
+        if check_scripts:
+            for name in dict.fromkeys(s if s.endswith(".js") else s + ".js" for s in scripts):
+                result = subprocess.run(["node", "--check", "--input-type=commonjs"],
+                                        input=archive.read(name), capture_output=True, timeout=20)
+                if result.returncode:
+                    raise ValueError(f"{path.name}: invalid JavaScript syntax in {name}")
     stem = re.sub(r"[^a-z0-9]+", "-", path.stem.lower()).strip("-")[:40] or "cart"
     identity = hashlib.sha256(path.name.encode("utf-8")).hexdigest()[:10]
     return {
